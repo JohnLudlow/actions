@@ -4,4 +4,4 @@ description: 'Checks for markdown formatting issues'
 runs:
   using: 'composite'
   steps:
-    - uses: rvben/rumdl@0.1.0v0
+    - uses: rvben/rumdl@v0
