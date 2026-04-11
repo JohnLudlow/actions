@@ -1,0 +1,29 @@
+name: 'Lint'
+description: 'Check code formatting'
+
+inputs:
+  dotnet-version:
+    description: '.NET version to setup'
+    default: '10.0.x'
+
+runs:
+  using: 'composite'
+  steps:
+  - uses: actions/checkout@v5
+
+  - name: Setup .NET
+    uses: actions/setup-dotnet@v4
+    with:
+      dotnet-version: ${{ inputs.dotnet-version }}
+
+  - name: Cache NuGet packages
+    uses: actions/cache@v4
+    with:
+      path: ~/.nuget/packages
+      key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+      restore-keys: |
+        ${{ runner.os }}-nuget-
+
+  - name: Check Code Formatting
+    shell: pwsh
+    run: dotnet format --verify-no-changes --verbosity diagnostic

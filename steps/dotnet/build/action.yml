@@ -1,0 +1,29 @@
+name: 'Build'
+description: 'Build the project and upload artifacts'
+
+inputs:
+  configuration:
+    description: 'Build configuration'
+    default: 'Release'
+
+runs:
+  using: 'composite'
+  steps:
+  - name: Build
+    shell: pwsh
+    run: |
+      $dotnetParams = @(
+        "--no-restore",
+        "/m:1",
+        "--configuration", "${{ inputs.configuration }}"
+      )
+
+      dotnet build @dotnetParams
+
+  - name: Upload build artifacts
+    uses: actions/upload-artifact@v4
+    with:
+      name: build-artifacts
+      path: |
+        **/bin/**
+        **/obj/**

@@ -1,0 +1,21 @@
+name: 'PR Size Check'
+description: 'Check if the pull request is too large'
+
+runs:
+  using: 'composite'
+  steps:
+  - uses: actions/checkout@v5
+  - name: Check PR Size
+    shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+    run: |
+      $pr = gh pr view ${{ github.event.number }} --json additions,deletions,files
+      $data = $pr | ConvertFrom-Json
+      $additions = $data.additions
+      $deletions = $data.deletions
+      $files = $data.files.Count
+      if ($additions + $deletions -gt 1000 -or $files -gt 50) {
+        Write-Host "::error::PR is too large: $files files, $($additions + $deletions) lines changed. Please split into smaller PRs."
+        exit 1
+      }
