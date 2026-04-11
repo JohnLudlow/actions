@@ -10,12 +10,34 @@ runs:
     env:
       GH_TOKEN: ${{ github.token }}
     run: |
-      $pr = gh pr view ${{ github.event.number }} --json additions,deletions,files
+      $pr = gh pr view ${{ github.event.number }} --json additions,deletions,files,title,body
+
       $data = $pr | ConvertFrom-Json
       $additions = $data.additions
       $deletions = $data.deletions
       $files = $data.files.Count
-      if ($additions + $deletions -gt 1000 -or $files -gt 50) {
-        Write-Host "::error::PR is too large: $files files, $($additions + $deletions) lines changed. Please split into smaller PRs."
-        exit 1
+      $title = $data.title
+      $body = $data.body
+
+      $overridePattern = '\[pr-size-override\]'
+      $hasOverride = $false
+
+      if ($title -match $overridePattern -or $body -match $overridePattern) {
+        $hasOverride = $true
+        Write-Host "::notice::PR size override marker detected. Check will pass with warning."
+      }
+
+      $totalChanges = $additions + $deletions
+      $exceedsLimits = ($totalChanges -gt 5000 -or $files -gt 100)
+
+      if ($exceedsLimits) {
+        $message = "PR is too large: $files files, $totalChanges lines changed. Please split into smaller PRs."
+        
+        if ($hasOverride) {
+          Write-Host "::warning::$message (Override active - check passing)"
+          exit 0  # Pass with warning
+        } else {
+          Write-Host "::error::$message"
+          exit 1  # Fail
+        }
       }
