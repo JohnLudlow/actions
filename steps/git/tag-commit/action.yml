@@ -1,18 +1,15 @@
 name: 'TagCommit'
 description: 'Tags the commit with the version number'
 
-inputs:
-  version:
-    description: 'The version number'
-    default: "v${{ steps.setup.outputs.GitVersion_FullSemVer }}"
-
-steps:
-  - name: Tag Commit
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    shell: pwsh
-    run: |
-      git config --local user.email "action@github.com"
-      git config --local user.name "GitHub Action"
-      $tag = "v${{ inputs.GitVersion_FullSemVer }}"
-      git tag $tag
-      git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git $tag
+runs: 
+  using: composite
+  steps:
+    - name: Tag Commit
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: pwsh
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        $tag = "v${{ steps.setup.outputs.GitVersion_FullSemVer }}"
+        git tag $tag
+        git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git $tag
