@@ -1,6 +1,10 @@
 name: 'TagCommit'
 description: 'Tags the commit with the version number'
 
+inputs:
+  GITHUB_TOKEN:
+    description: The authenticated GITHUB_TOKEN
+
 runs: 
   using: composite
   steps:
@@ -12,4 +16,4 @@ runs:
         git config --local user.name "GitHub Action"
         $tag = "v${{ steps.setup.outputs.GitVersion_FullSemVer }}"
         git tag $tag
-        git push https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git $tag
+        git push https://x-access-token:${{ inputs.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git $tag
