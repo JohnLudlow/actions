@@ -47,7 +47,7 @@ runs:
       $exceedsLimits = ($totalChanges -gt ${{ inputs.maxChanges }} -or $files -gt ${{ inputs.maxFiles }})
 
       if ($exceedsLimits) {
-        $message = "PR is too large: $files files, $totalChanges lines changed. Please split into smaller PRs."
+        $message = "PR is too large: $files files (max ${{ inputs.maxFiles }}), $totalChanges lines changed (max ${{ inputs.maxChanges }}). Please split into smaller PRs."
         
         if ($hasOverride) {
           Write-Host "::warning::$message (Override active - check passing)"
