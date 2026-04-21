@@ -1,6 +1,17 @@
 name: 'PR Size Check'
 description: 'Check if the pull request is too large'
 
+inputs:
+  overridePattern: 
+    description: 'Regex to check for override'
+    default: '\[pr-size-override\]'
+
+  maxChanges:
+    default: 100
+
+  maxFiles:
+    default: 100
+
 runs:
   using: 'composite'
   steps:
@@ -19,7 +30,7 @@ runs:
       $title = $data.title
       $body = $data.body
 
-      $overridePattern = '\[pr-size-override\]'
+      $overridePattern = '${{ inputs.overridePattern }}'
       $hasOverride = $false
 
       if ($title -match $overridePattern -or $body -match $overridePattern) {
@@ -28,7 +39,7 @@ runs:
       }
 
       $totalChanges = $additions + $deletions
-      $exceedsLimits = ($totalChanges -gt 5000 -or $files -gt 100)
+      $exceedsLimits = ($totalChanges -gt ${{ inputs.maxChanges }} -or $files -gt ${{ inputs.maxFiles }})
 
       if ($exceedsLimits) {
         $message = "PR is too large: $files files, $totalChanges lines changed. Please split into smaller PRs."

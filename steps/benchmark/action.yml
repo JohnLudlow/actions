@@ -20,10 +20,10 @@ inputs:
   exporters:
     description: "BenchmarkDotNet exporters (e.g. GitHub)"
     default: "GitHub"
-  baseline-artifact-name:
+  baselineArtifactName:
     description: "Artifact name used to store the benchmark baseline on main"
     default: "benchmark-baseline"
-  baseline-dir:
+  baselineDir:
     description: "Folder name to extract the baseline artifact into"
     default: "BenchmarkBaseline"
 
@@ -56,7 +56,7 @@ runs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: actions/upload-artifact@v4
     with:
-      name: ${{ inputs.baseline-artifact-name }}
+      name: ${{ inputs.baselineArtifactName }}
       path: ${{ inputs.artifacts }}
 
   - name: Download Benchmark Baseline
@@ -67,14 +67,14 @@ runs:
     run: |
       $artifacts = gh api /repos/${{ github.repository }}/actions/artifacts | ConvertFrom-Json
       $baseline = $artifacts.artifacts |
-        Where-Object { $_.name -eq '${{ inputs.baseline-artifact-name }}' } |
+        Where-Object { $_.name -eq '${{ inputs.baselineArtifactName }}' } |
         Sort-Object created_at -Descending |
         Select-Object -First 1
 
       if ($baseline) {
         $url = "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$($baseline.id)/zip"
         Invoke-WebRequest -Uri $url -OutFile benchmark-baseline.zip -Headers @{ "Authorization" = "token ${{ github.token }}"; "Accept" = "application/vnd.github.v3+json" }
-        Expand-Archive benchmark-baseline.zip "${{ inputs.baseline-dir }}" -Force
+        Expand-Archive benchmark-baseline.zip "${{ inputs.baselineDir }}" -Force
       }
 
   - name: Benchmark
@@ -91,8 +91,8 @@ runs:
         "-j", "${{ inputs.job }}"
       )
 
-      if (Test-Path "${{ inputs.baseline-dir }}") {
-        $dotnetParams += @("--baseline", "${{ inputs.baseline-dir }}")
+      if (Test-Path "${{ inputs.baselineDir }}") {
+        $dotnetParams += @("--baseline", "${{ inputs.baselineDir }}")
       }
 
       dotnet run @dotnetParams
