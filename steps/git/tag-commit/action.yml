@@ -14,4 +14,4 @@ runs:
         git config --local user.name "GitHub Action"
         $tag = "v${{ steps.setup.outputs.GitVersion_FullSemVer }}"
         git tag $tag
-        git push https://x-access-token:${{ inputs.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git $tag
+        git push origin $tag
