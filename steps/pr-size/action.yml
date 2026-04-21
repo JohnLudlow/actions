@@ -2,7 +2,7 @@ name: 'PR Size Check'
 description: 'Check if the pull request is too large'
 
 inputs:
-  overridePattern: 
+  overridePattern:
     description: 'Regex to check for override'
     default: '\[pr-size-override\]'
 
