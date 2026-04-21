@@ -1,0 +1,61 @@
+name: 'Setup'
+description: 'Common setup steps for jobs'
+
+inputs:
+  dotnet-version:
+    description: '.NET version to setup'
+    default: '10.0.x'
+
+outputs:
+  assemblySemVer:
+    description: 'Assembly semantic version'
+    value: ${{ steps.version_step.outputs.assemblySemVer }}
+  assemblySemFileVer:
+    description: 'Assembly file version'
+    value: ${{ steps.version_step.outputs.assemblySemFileVer }}
+  GitVersion_FullSemVer:
+    description: 'Full GitVersion semver'
+    value: ${{ steps.version_step.outputs.GitVersion_FullSemVer }}
+  semVer:
+    description: 'Semantic version'
+    value: ${{ steps.version_step.outputs.semVer }}
+
+runs:
+  using: 'composite'
+  steps:
+  - uses: actions/checkout@v5
+    with:
+      lfs: true
+      fetch-depth: 0
+
+  - name: Install GitVersion
+    uses: gittools/actions/gitversion/setup@v4.2.0
+    with:
+      versionSpec: '6.4.x'
+
+  - name: Determine Version
+    id: version_step
+    uses: gittools/actions/gitversion/execute@v4.2.0
+
+  - name: Set Version Environment Variables
+    shell: pwsh
+    run: |
+      "AssemblyVersion=${{ steps.version_step.outputs.assemblySemVer }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+      "AssemblyFileVersion=${{ steps.version_step.outputs.assemblySemFileVer }}" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+  - name: Setup .NET
+    uses: actions/setup-dotnet@v4
+    with:
+      dotnet-version: ${{ inputs.dotnet-version }}
+
+  - name: Cache NuGet packages
+    uses: actions/cache@v4
+    with:
+      path: ~/.nuget/packages
+      key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
+      restore-keys: |
+        ${{ runner.os }}-nuget-
+
+  - name: Restore dependencies
+    shell: pwsh
+    run: dotnet restore

@@ -1,0 +1,59 @@
+name: 'PR Size Check'
+description: 'Check if the pull request is too large'
+
+inputs:
+  overridePattern:
+    description: 'Regex to check for override'
+    default: '\[pr-size-override\]'
+
+  maxChanges:
+    default: 100
+
+  maxFiles:
+    default: 100
+
+runs:
+  using: 'composite'
+  steps:
+  - uses: actions/checkout@v5
+  - name: Check PR Size
+    shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+    run: |
+      $prNumber = '${{ github.event.number }}'
+      if ([string]::IsNullOrWhiteSpace($prNumber)) {
+        Write-Host "::notice::Skipping PR size check because this workflow was not triggered by a pull request event."
+        exit 0
+      }
+
+      $pr = gh pr view $prNumber --json additions,deletions,files,title,body
+      $data = $pr | ConvertFrom-Json
+      $additions = $data.additions
+      $deletions = $data.deletions
+      $files = $data.files.Count
+      $title = $data.title
+      $body = $data.body
+
+      $overridePattern = '${{ inputs.overridePattern }}'
+      $hasOverride = $false
+
+      if ($title -match $overridePattern -or $body -match $overridePattern) {
+        $hasOverride = $true
+        Write-Host "::notice::PR size override marker detected. Check will pass with warning."
+      }
+
+      $totalChanges = $additions + $deletions
+      $exceedsLimits = ($totalChanges -gt ${{ inputs.maxChanges }} -or $files -gt ${{ inputs.maxFiles }})
+
+      if ($exceedsLimits) {
+        $message = "PR is too large: $files files (max ${{ inputs.maxFiles }}), $totalChanges lines changed (max ${{ inputs.maxChanges }}). Please split into smaller PRs."
+        
+        if ($hasOverride) {
+          Write-Host "::warning::$message (Override active - check passing)"
+          exit 0  # Pass with warning
+        } else {
+          Write-Host "::error::$message"
+          exit 1  # Fail
+        }
+      }

@@ -1,0 +1,108 @@
+name: 'Test'
+description: 'Run tests and generate coverage reports'
+inputs:
+  configuration:
+    description: 'Build configuration'
+    default: 'Release'
+  assembly-semver:
+    description: 'Assembly semantic version'
+    required: true
+  gitversion-full-semver:
+    description: 'Full GitVersion semver'
+    required: true
+
+runs:
+  using: 'composite'
+  steps:
+  - name: Download build artifacts
+    uses: actions/download-artifact@v4
+    with:
+      name: build-artifacts
+      path: .
+              
+  - name: Test
+    shell: pwsh
+    run: |
+      $dotnetParams = @(
+        "--no-build",
+        "--configuration", "${{ inputs.configuration }}",
+        "--verbosity", "normal",
+        "--collect:XPlat Code Coverage",
+        "--logger", "trx",
+        "--results-directory", "TestResults"
+      )
+
+      dotnet test @dotnetParams
+
+  - name: Test Report
+    uses: dorny/test-reporter@v2
+    if: ${{ !cancelled() }}
+    with:
+      name: Unit Tests
+      path: TestResults/**/*.trx
+      reporter: dotnet-trx
+
+  - name: Download Coverage Baseline
+    if: github.event_name == 'pull_request'    
+    shell: pwsh
+    env:
+      GH_TOKEN: ${{ github.token }}
+    run: |
+      $artifactPages = gh api --paginate --slurp /repos/${{ github.repository }}/actions/artifacts | ConvertFrom-Json
+      $allArtifacts = $artifactPages | ForEach-Object { $_.artifacts }
+      $baseline = $allArtifacts | Where-Object { $_.name -eq 'coverage-baseline' } | Sort-Object created_at -Descending | Select-Object -First 1
+      if ($baseline) {
+        $url = "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$($baseline.id)/zip"
+        Invoke-WebRequest -Uri $url -OutFile baseline.zip -Headers @{ "Authorization" = "token ${{ github.token }}"; "Accept" = "application/vnd.github.v3+json" }
+        Expand-Archive baseline.zip baseline
+        "HISTORY_DIR=baseline" | Out-File -FilePath $env:GITHUB_ENV -Append
+      }
+
+  - name: ReportGenerator
+    uses: danielpalme/ReportGenerator-GitHub-Action@5.5.1
+    with:
+      reports: '**/coverage.cobertura.xml'
+      targetdir: 'coverage'
+      reporttypes: 'MarkdownSummaryGithub;MarkdownDeltaSummary'
+      historydir: ${{ env.HISTORY_DIR }}
+      title: ${{ inputs.assembly-semver }}
+
+  - name: Upload coverage report artifact
+    uses: actions/upload-artifact@v4
+    with:
+      name: CoverageReport-${{ inputs.gitversion-full-semver }}
+      path: coverage
+
+  - name: Publish coverage in build summary
+    shell: pwsh
+    run: |
+      cat coverage/SummaryGithub.md >> $env:GITHUB_STEP_SUMMARY
+      $content = Get-Content 'coverage/SummaryGithub.md' -Raw
+      "GITHUB_PR_COMMENT<<EOF" | Out-File -FilePath $env:GITHUB_ENV -Append
+      $content | Out-File -FilePath $env:GITHUB_ENV -Append
+      "EOF" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+  # - uses: mshick/add-pr-comment@v2
+  #   with:
+  #     repo-token: ${{ github.token }}
+  #     message: ${{ env.GITHUB_PR_COMMENT }}
+
+
+  # - name: Comment PR with coverage
+  #   if: github.event_name == 'pull_request'
+  #   shell: pwsh
+  #   env:
+  #     GH_TOKEN: ${{ github.token }}
+  #   run: |
+  #     if (Test-Path 'coverage/SummaryGithub.md') {
+  #       $content = Get-Content 'coverage/SummaryGithub.md' -Raw
+  #       $prNumber = $env:GITHUB_REF -replace 'refs/pull/', '' -replace '/merge', ''
+  #       gh pr comment $prNumber --body "## Coverage Report`n`n$content"
+  #     }
+
+  - name: Upload Coverage Baseline
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    uses: actions/upload-artifact@v4
+    with:
+      name: coverage-baseline
+      path: '**/coverage.cobertura.xml'

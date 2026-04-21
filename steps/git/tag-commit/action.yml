@@ -1,0 +1,22 @@
+name: 'TagCommit'
+description: 'Tags the commit with the version number'
+
+inputs:
+  version:
+    description: 'Full semantic version to tag the commit with (e.g. from GitVersion_FullSemVer)'
+    required: true
+
+runs: 
+  using: composite
+  steps:
+    - name: Tag Commit
+      if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      shell: pwsh
+      env:
+        GH_TOKEN: ${{ github.token }}      
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        $tag = "v${{ inputs.version }}"
+        git tag $tag
+        git push origin $tag
