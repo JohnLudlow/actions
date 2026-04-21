@@ -21,8 +21,13 @@ runs:
     env:
       GH_TOKEN: ${{ github.token }}
     run: |
-      $pr = gh pr view ${{ github.event.number }} --json additions,deletions,files,title,body
+      $prNumber = '${{ github.event.number }}'
+      if ([string]::IsNullOrWhiteSpace($prNumber)) {
+        Write-Host "::notice::Skipping PR size check because this workflow was not triggered by a pull request event."
+        exit 0
+      }
 
+      $pr = gh pr view $prNumber --json additions,deletions,files,title,body
       $data = $pr | ConvertFrom-Json
       $additions = $data.additions
       $deletions = $data.deletions
