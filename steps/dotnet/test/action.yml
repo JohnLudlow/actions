@@ -76,7 +76,10 @@ runs:
     shell: pwsh
     run: |
       cat coverage/SummaryGithub.md >> $env:GITHUB_STEP_SUMMARY
-      "GITHUB_PR_COMMENT=$(cat coverage/SummaryGithub.md)" | Out-File -FilePath $env:GITHUB_ENV -Append
+      $content = Get-Content 'coverage/SummaryGithub.md' -Raw
+      "GITHUB_PR_COMMENT<<EOF" | Out-File -FilePath $env:GITHUB_ENV -Append
+      $content | Out-File -FilePath $env:GITHUB_ENV -Append
+      "EOF" | Out-File -FilePath $env:GITHUB_ENV -Append
 
   # - uses: mshick/add-pr-comment@v2
   #   with:
