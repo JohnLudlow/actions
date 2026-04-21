@@ -1,13 +1,34 @@
-﻿name: 'Benchmark'
-description: 'Run benchmarks and handle baselines'
+name: "Benchmark"
+description: "Run benchmarks and handle baselines"
 
 inputs:
   configuration:
-    description: 'Build configuration'
-    default: 'Release'
+    description: "Build configuration"
+    default: "Release"
+  project:
+    description: "Path to the benchmark project (.csproj)"
+    required: true
+  job:
+    description: "BenchmarkDotNet job preset (e.g. short, medium, long, dry, default)"
+    default: "short"
+  filter:
+    description: "BenchmarkDotNet filter pattern"
+    default: "*"
+  artifacts:
+    description: "BenchmarkDotNet artifacts output folder"
+    default: "BenchmarkDotNet.Artifacts"
+  exporters:
+    description: "BenchmarkDotNet exporters (e.g. GitHub)"
+    default: "GitHub"
+  baseline-artifact-name:
+    description: "Artifact name used to store the benchmark baseline on main"
+    default: "benchmark-baseline"
+  baseline-dir:
+    description: "Folder name to extract the baseline artifact into"
+    default: "BenchmarkBaseline"
 
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
   - name: Download build artifacts
     uses: actions/download-artifact@v4
@@ -22,14 +43,12 @@ runs:
       $dotnetParams = @(
         "--no-build",
         "--configuration", "${{ inputs.configuration }}",
-        
-        # TODO: populate the benchmark project path
-        "--project", "<path to benchmark project>",
-        
+        "--project", "${{ inputs.project }}",
         "--",
-        "--filter", "*",
-        "--artifacts", "BenchmarkDotNet.Artifacts",
-        "--fast"
+        "--filter", "${{ inputs.filter }}",
+        "--artifacts", "${{ inputs.artifacts }}",
+        "--exporters", "${{ inputs.exporters }}",
+        "-j", "${{ inputs.job }}"
       )
       dotnet run @dotnetParams
 
@@ -37,20 +56,25 @@ runs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     uses: actions/upload-artifact@v4
     with:
-      name: benchmark-baseline
-      path: BenchmarkDotNet.Artifacts
+      name: ${{ inputs.baseline-artifact-name }}
+      path: ${{ inputs.artifacts }}
 
   - name: Download Benchmark Baseline
+    if: github.event_name == 'pull_request'
     shell: pwsh
     env:
       GH_TOKEN: ${{ github.token }}
     run: |
       $artifacts = gh api /repos/${{ github.repository }}/actions/artifacts | ConvertFrom-Json
-      $baseline = $artifacts.artifacts | Where-Object { $_.name -eq 'benchmark-baseline' } | Sort-Object created_at -Descending | Select-Object -First 1
+      $baseline = $artifacts.artifacts |
+        Where-Object { $_.name -eq '${{ inputs.baseline-artifact-name }}' } |
+        Sort-Object created_at -Descending |
+        Select-Object -First 1
+
       if ($baseline) {
         $url = "https://api.github.com/repos/${{ github.repository }}/actions/artifacts/$($baseline.id)/zip"
         Invoke-WebRequest -Uri $url -OutFile benchmark-baseline.zip -Headers @{ "Authorization" = "token ${{ github.token }}"; "Accept" = "application/vnd.github.v3+json" }
-        Expand-Archive benchmark-baseline.zip BenchmarkBaseline
+        Expand-Archive benchmark-baseline.zip "${{ inputs.baseline-dir }}" -Force
       }
 
   - name: Benchmark
@@ -59,24 +83,27 @@ runs:
       $dotnetParams = @(
         "--no-build",
         "--configuration", "${{ inputs.configuration }}",
-
-        # TODO: populate the benchmark project path
-        "--project", "<path to benchmark project>",
-        
+        "--project", "${{ inputs.project }}",
         "--",
-        "--filter", "*",
-        "--baseline", "BenchmarkBaseline",
-        "--fast"
+        "--filter", "${{ inputs.filter }}",
+        "--artifacts", "${{ inputs.artifacts }}",
+        "--exporters", "${{ inputs.exporters }}",
+        "-j", "${{ inputs.job }}"
       )
+
+      if (Test-Path "${{ inputs.baseline-dir }}") {
+        $dotnetParams += @("--baseline", "${{ inputs.baseline-dir }}")
+      }
+
       dotnet run @dotnetParams
 
   - name: Publish performance report in build summary
     shell: pwsh
     run: |
-      cat BenchmarkDotNet.Artifacts/results/*.md >> $env:GITHUB_STEP_SUMMARY
-      "GITHUB_PR_COMMENT=$(cat BenchmarkDotNet.Artifacts/results/*.md)" | Foreach-Object { "$($_ | Out-File -FilePath $env:GITHUB_ENV -Append)`n" }
- 
-  # - uses: mshick/add-pr-comment@v2
-  #   with:
-  #     repo-token: ${{ github.token }}
-  #     message: ${{ env.GITHUB_PR_COMMENT }}
+      $resultsDir = Join-Path "${{ inputs.artifacts }}" "results"
+      if (Test-Path $resultsDir) {
+        Get-ChildItem -Path $resultsDir -Filter "*.md" |
+          Sort-Object Name |
+          ForEach-Object { Get-Content $_ -Raw } |
+          Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append
+      }
