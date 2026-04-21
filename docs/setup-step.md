@@ -16,7 +16,6 @@ Common setup for jobs (checkout, versioning, .NET SDK, and restore).
 | Input | Required | Default | Meaning |
 | --- | --- | --- | --- |
 | `dotnet-version` | No | `10.0.x` | Version passed to `actions/setup-dotnet` |
-| `configuration` | No | `Release` | Build configuration (currently not used directly by this step) |
 
 ## Outputs
 
