@@ -65,8 +65,9 @@ runs:
     env:
       GH_TOKEN: ${{ github.token }}
     run: |
-      $artifacts = gh api /repos/${{ github.repository }}/actions/artifacts | ConvertFrom-Json
-      $baseline = $artifacts.artifacts |
+      $artifactPages = gh api --paginate --slurp /repos/${{ github.repository }}/actions/artifacts | ConvertFrom-Json
+      $allArtifacts = $artifactPages | ForEach-Object { $_.artifacts }
+      $baseline = $allArtifacts |
         Where-Object { $_.name -eq '${{ inputs.baselineArtifactName }}' } |
         Sort-Object created_at -Descending |
         Select-Object -First 1

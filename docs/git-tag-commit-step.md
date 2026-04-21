@@ -8,7 +8,9 @@ Tags the `main` branch commit with a version tag on push.
 
 ## Inputs
 
-None.
+| Input | Required | Default | Meaning |
+| --- | --- | --- | --- |
+| `version` | Yes | (none) | Full semantic version string to tag the commit with (e.g. the value of `GitVersion_FullSemVer` from the setup step) |
 
 ## Checkout requirements
 
@@ -34,5 +36,5 @@ Example:
 
 ## Notes / caveats
 
-- This action relies on GitVersion output being available in the job to compute the tag name.
+- The `version` input should be supplied from the GitVersion output of the setup step (e.g. `${{ steps.setup.outputs.GitVersion_FullSemVer }}`).
 - The action performs `git push` and requires appropriate permissions/token configuration in the calling workflow.
