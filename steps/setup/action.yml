@@ -5,9 +5,6 @@ inputs:
   dotnet-version:
     description: '.NET version to setup'
     default: '10.0.x'
-  configuration:
-    description: 'Build configuration'
-    default: 'Release'
 
 outputs:
   assemblySemVer:
