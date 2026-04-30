@@ -7,10 +7,10 @@ inputs:
     default: '\[pr-size-override\]'
 
   maxChanges:
-    default: 100
+    default: 1000
 
   maxFiles:
-    default: 1000
+    default: 100
 
 runs:
   using: 'composite'
