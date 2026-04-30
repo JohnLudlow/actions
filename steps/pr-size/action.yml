@@ -10,7 +10,7 @@ inputs:
     default: 100
 
   maxFiles:
-    default: 100
+    default: 1000
 
 runs:
   using: 'composite'
