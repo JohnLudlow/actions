@@ -1,6 +1,7 @@
 name: Tag on Main
 
 on:
+  pull_request: 
   push:
     branches:
       - main
