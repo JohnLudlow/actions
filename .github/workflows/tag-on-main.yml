@@ -1,0 +1,33 @@
+name: Tag on Main
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+          lfs: true
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install GitVersion
+        uses: gittools/actions/gitversion/setup@v4.2.0
+        with:
+          versionSpec: '6.4.x'
+
+      - name: Determine Version
+        id: gitversion
+        uses: gittools/actions/gitversion/execute@v4.2.0
+
+      - name: Tag Commit
+        uses: ./steps/git/tag-commit
+        with:
+          version: ${{ steps.gitversion.outputs.GitVersion_FullSemVer }}
