@@ -1,4 +1,4 @@
-name: Tag on Main
+name: Main
 
 on:
   push:
