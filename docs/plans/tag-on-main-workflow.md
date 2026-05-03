@@ -98,7 +98,7 @@ if: inputs.dotnet == 'true'
 ## Workflow File
 
 ```yaml
-name: Tag on Main
+name: Main
 
 on:
   push:
@@ -108,7 +108,28 @@ on:
   workflow_dispatch:
 
 jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      full-sem-ver: ${{ steps.setup.outputs.GitVersion_FullSemVer }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          lfs: true
+          submodules: recursive
+          fetch-depth: 0
+
+      - id: setup
+        uses: ./steps/setup
+        with:
+          dotnet: 'false'
+
   tag:
+    needs: version
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -120,20 +141,18 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - id: setup
-        uses: ./steps/setup
-        with:
-          dotnet: 'false'
-
       - uses: ./steps/git/tag-commit
         with:
-          version: ${{ steps.setup.outputs.GitVersion_FullSemVer }}
+          version: ${{ needs.version.outputs.full-sem-ver }}
 ```
 
 The `pull_request` and `workflow_dispatch` triggers allow the workflow to be
-tested on a branch before merging. The `tag-commit` action has an internal
-guard (`if: github.event_name == 'push' && github.ref == 'refs/heads/main'`)
-so it will not create a tag on PR or manual-dispatch runs.
+tested on a branch before merging. The `version` job runs on all triggers with
+`contents: read`. The `tag` job only runs on `push` to `main`, where it
+re-checks out the repository with `persist-credentials: true` and
+`contents: write` in order to push the tag. The `tag-commit` action also has
+an internal guard (`if: github.event_name == 'push' && github.ref ==
+'refs/heads/main'`) so it will not create a tag on PR or manual-dispatch runs.
 
 ## Design Notes
 
@@ -149,28 +168,35 @@ Using `./steps/setup` (rather than calling GitVersion actions directly) keeps
 the pattern consistent with consuming repos such as GameEngineAdapter, and
 ensures the same GitVersion version specification is used everywhere.
 
-### Double-checkout tradeoff
+### Double-checkout tradeoff (version job only)
 
-The outer checkout step (in the workflow) and the inner checkout step (inside
-`./steps/setup`) both run `actions/checkout@v5`. The inner checkout re-fetches
-full history and resets submodule state set by the outer. This is a known
-architectural tradeoff — not harmful for this workflow (which does not need
-submodule content after setup) but worth noting:
+The outer checkout step (in the `version` job) and the inner checkout step
+(inside `./steps/setup`) both run `actions/checkout@v5`. The inner checkout
+re-fetches full history and resets submodule state set by the outer. This is a
+known architectural tradeoff — not harmful for this workflow (which does not
+need submodule content after setup) but worth noting:
 
-- Credentials are re-persisted by the inner checkout; `git push` in
-  `tag-commit` still works.
-- Wasted CI time: two fetches with `fetch-depth: 0` per run.
+- The outer checkout uses `persist-credentials: false`; the inner checkout
+  inside `./steps/setup` uses the default (`persist-credentials: true`). No
+  credential leak risk as neither job pushes from the `version` job.
+- Wasted CI time: two fetches with `fetch-depth: 0` per run in the `version` job.
 
 If minimising checkout time becomes a priority, a `skip-checkout` input could
 be added to `./steps/setup` in a future change.
 
-### Why `permissions` is scoped to the job
+### Why `permissions` is scoped to each job
 
-`permissions: contents: write` is placed inside `jobs.tag`, not at the
-workflow level. This follows the principle of least privilege: permissions
-apply only to the job that requires them, rather than to every job in the
-file. As additional jobs are added to this workflow in future, they will
-default to read-only tokens.
+`permissions: contents: write` is placed only on the `tag` job. The `version`
+job uses `contents: read`. This follows the principle of least privilege:
+third-party actions (GitVersion) run under the read-only token, and the write
+token is granted only to the job that actually pushes the tag.
+
+### Why the `tag` job uses a separate checkout
+
+The `tag` job does not call `./steps/setup` — it only needs to push a tag.
+A second checkout with `persist-credentials: true` is required so that
+`git push` can authenticate. Because `./steps/setup` is not called here,
+there is no double-checkout overhead in the `tag` job.
 
 ### Why the workflow needs `contents: write`
 
@@ -206,12 +232,23 @@ this workflow.
 
 ### Checkout options
 
+`version` job outer checkout:
+
 | Option | Value | Reason |
 | --- | --- | --- |
-| `persist-credentials` | `true` | Explicit for clarity; this is the `actions/checkout` default. Ensures `git push` can authenticate. |
+| `persist-credentials` | `false` | No push needed from this job; avoids granting credentials to third-party actions. |
+| `lfs` | `true` | Not currently used in this repo; included as a forward-compatible precaution. |
+| `submodules` | `recursive` | This repo has no submodules; option is inert but included for consistency. |
+| `fetch-depth` | `0` | Fetches full history. Required by GitVersion to compute the correct version. |
+
+`tag` job checkout:
+
+| Option | Value | Reason |
+| --- | --- | --- |
+| `persist-credentials` | `true` | Ensures `git push` can authenticate when pushing the tag. |
 | `lfs` | `true` | Not currently used in this repo; included as a forward-compatible precaution per `tag-commit` docs. |
 | `submodules` | `recursive` | This repo has no submodules; option is inert but included per `tag-commit` docs. |
-| `fetch-depth` | `0` | Fetches full history. Required by GitVersion to compute the correct version. |
+| `fetch-depth` | `0` | Fetches full history. Required by `tag-commit` docs. |
 
 See [`docs/git-tag-commit-step.md`](../git-tag-commit-step.md) for the full reference.
 
@@ -237,8 +274,9 @@ redundant in this context. Both constraints are kept because:
 
 - [x] Add `dotnet` input to `steps/setup/action.yml` (default `'true'`; conditions
   `Setup .NET`, `Cache NuGet packages`, `Restore dependencies`)
-- [x] Create `.github/workflows/main.yml` with `pull_request` and
-  `workflow_dispatch` triggers; using `./steps/setup` with `dotnet: 'false'`
+- [x] Create `.github/workflows/main.yml` with `push`, `pull_request` and
+  `workflow_dispatch` triggers; split into `version` (`contents: read`) and
+  `tag` (`contents: write`, push-to-main only) jobs
 - [x] Replace `GitVersion.yml` with `workflow: GitHubFlow/v1` (single line).
   The current committed file is a 113-line manual expansion of this preset;
   the single-line form is cleaner and unambiguously correct.
