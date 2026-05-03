@@ -48,7 +48,7 @@ Three files require changes:
 | --- | --- |
 | `GitVersion.yml` | Replace with `workflow: GitHubFlow/v1` — the correct v6 preset |
 | `steps/setup/action.yml` | Add `dotnet` input (default `'true'`) to make .NET steps conditional |
-| `.github/workflows/tag-on-main.yml` | New workflow file using `./steps/setup` with `dotnet: 'false'` |
+| `.github/workflows/main.yml` | New workflow file using `./steps/setup` with `dotnet: 'false'` |
 
 ## GitVersion Configuration File
 
