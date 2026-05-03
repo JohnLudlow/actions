@@ -239,12 +239,12 @@ redundant in this context. Both constraints are kept because:
   `Setup .NET`, `Cache NuGet packages`, `Restore dependencies`)
 - [x] Create `.github/workflows/main.yml` with `pull_request` and
   `workflow_dispatch` triggers; using `./steps/setup` with `dotnet: 'false'`
+- [x] Replace `GitVersion.yml` with `workflow: GitHubFlow/v1` (single line).
+  The current committed file is a 113-line manual expansion of this preset;
+  the single-line form is cleaner and unambiguously correct.
 
 **Still required:**
 
-- [ ] Replace `GitVersion.yml` with `workflow: GitHubFlow/v1` (single line).
-  The current committed file is a 113-line manual expansion of this preset;
-  the single-line form is cleaner and unambiguously correct.
 - [ ] Commit all changes and push to the branch.
 - [ ] Open a PR and verify the workflow runs successfully on the PR (no tag
   created; GitVersion computes a version without error).
