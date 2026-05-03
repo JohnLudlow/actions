@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - revert-6-revert-5-4-version-and-tag-on-main-commit
 
 jobs:
   tag:
