@@ -1,11 +1,11 @@
 name: Tag on Main
 
 on:
-  pull_request: 
   push:
     branches:
       - main
-      - revert-6-revert-5-4-version-and-tag-on-main-commit
+  pull_request:
+  workflow_dispatch:
 
 jobs:
   tag:
@@ -20,16 +20,11 @@ jobs:
           submodules: recursive
           fetch-depth: 0
 
-      - name: Install GitVersion
-        uses: gittools/actions/gitversion/setup@v4.2.0
+      - id: setup
+        uses: ./steps/setup
         with:
-          versionSpec: '6.4.x'
+          dotnet: 'false'
 
-      - name: Determine Version
-        id: gitversion
-        uses: gittools/actions/gitversion/execute@v4.2.0
-
-      - name: Tag Commit
-        uses: ./steps/git/tag-commit
+      - uses: ./steps/git/tag-commit
         with:
-          version: ${{ steps.gitversion.outputs.GitVersion_FullSemVer }}
+          version: ${{ steps.setup.outputs.GitVersion_FullSemVer }}
