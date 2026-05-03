@@ -1,0 +1,46 @@
+name: Main
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      full-sem-ver: ${{ steps.setup.outputs.GitVersion_FullSemVer }}
+    steps:
+      - uses: actions/checkout@v5  # required even though the one in steps has another
+        with:
+          persist-credentials: true
+          lfs: true
+          submodules: recursive
+          fetch-depth: 0
+
+      - id: setup
+        uses: ./steps/setup
+        with:
+          dotnet: 'false'
+
+  tag:
+    needs: version
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: true
+          lfs: true
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: ./steps/git/tag-commit
+        with:
+          version: ${{ needs.version.outputs.full-sem-ver }}
