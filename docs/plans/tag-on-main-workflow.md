@@ -237,7 +237,7 @@ redundant in this context. Both constraints are kept because:
 
 - [x] Add `dotnet` input to `steps/setup/action.yml` (default `'true'`; conditions
   `Setup .NET`, `Cache NuGet packages`, `Restore dependencies`)
-- [x] Create `.github/workflows/tag-on-main.yml` with `pull_request` and
+- [x] Create `.github/workflows/main.yml` with `pull_request` and
   `workflow_dispatch` triggers; using `./steps/setup` with `dotnet: 'false'`
 
 **Still required:**
