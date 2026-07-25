@@ -93,7 +93,8 @@ runs:
       )
 
       if (Test-Path "${{ inputs.baselineDir }}") {
-        $dotnetParams += @("--baseline", "${{ inputs.baselineDir }}")
+        # Provide baseline path via environment variable for post-processing or custom comparers.
+        Write-Output "BENCHMARK_BASELINE=${{ inputs.baselineDir }}" | Out-File -FilePath $env:GITHUB_ENV -Append
       }
 
       dotnet run @dotnetParams
