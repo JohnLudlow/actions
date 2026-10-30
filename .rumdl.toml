@@ -1,0 +1,12 @@
+# rumdl configuration file
+
+# Inherit settings from another config file (relative to this file's directory)
+# extends = "../base.rumdl.toml"
+
+# Global configuration options
+[global]
+# List of rules to disable (uncomment and modify as needed)
+# disable = ["MD013", "MD033"]
+
+[MD013]
+enabled = false
